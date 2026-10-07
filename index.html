@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NYC Planner · 24 oct — 8 nov 2026</title>
+<meta name="description" content="Planificador de 16 días en Nueva York desde Danbury, CT: rutas por barrio, mapa, trenes Metro-North, Halloween y modo foto.">
+<meta name="theme-color" content="#0C0C10">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230C0C10'/%3E%3Ccircle cx='32' cy='32' r='22' fill='%23C8775A'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-family='Georgia,serif' font-size='22' fill='%23F2EFE9'%3ENYC%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600&family=Bodoni+Moda:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><b>NYC</b><span class="eyebrow">PLAN · 16 DÍAS</span></div>
+  <nav id="nav"></nav>
+  <div class="right">
+    <span class="dates">OCT 24 — NOV 08</span>
+    <span class="sep"></span>
+    <button class="theme" data-act="theme" title="Modo claro / oscuro"><span class="knob"><i></i></span><span id="themeLabel">OSCURO</span></button>
+  </div>
+</header>
+<main id="view"></main>
+<nav class="mnav" id="mnav"></nav>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
