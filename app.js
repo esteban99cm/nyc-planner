@@ -48,10 +48,11 @@ const S = {
   screen: ['overview','planner','explore','photo','halloween'].includes(location.hash.replace('#', '')) ? location.hash.replace('#', '') : 'overview', day: 1, sel: 0, detail: null, conn: null, hover: null,
   filters: {}, layers: { Ruta: true, 'Satélite': false, Multitud: false }, whyOpen: true, budget: false,
   photoF: { Atardecer: true }, photoDay: null, photoSel: 'dumbo', xmode: 'Todo', mview: 'list', sheetFull: false, addTo: null,
-  custom: saved.custom || {}, savedIds: saved.savedIds || [], theme: saved.theme || 'dark',
+  custom: saved.custom || {}, savedIds: saved.savedIds || [], theme: saved.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'), themeManual: !!saved.theme,
 };
 if (saved.day != null) S.day = saved.day;
-const persist = () => localStorage.setItem(LS, JSON.stringify({ custom: S.custom, savedIds: S.savedIds, theme: S.theme, day: S.day }));
+const persist = () => localStorage.setItem(LS, JSON.stringify({ custom: S.custom, savedIds: S.savedIds, theme: S.themeManual ? S.theme : undefined, day: S.day }));
+matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => { if (!S.themeManual) set({ theme: e.matches ? 'light' : 'dark' }); });
 const set = (p) => { Object.assign(S, p); render(); };
 
 // ───────────────────────── modelo del día ─────────────────────────
@@ -105,8 +106,10 @@ function buildDay(i) {
 const SCREENS = [['overview', 'Resumen'], ['planner', 'Planificador'], ['explore', 'Explorar'], ['photo', 'Modo foto'], ['halloween', 'Halloween']];
 const MNAV = [['overview', 'Resumen', '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>'], ['planner', 'Plan', '<path d="M4 5h16M4 12h16M4 19h10"/>'], ['map', 'Mapa', '<path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15"/>'], ['explore', 'Explorar', '<circle cx="12" cy="12" r="9"/><path d="M15 9l-2 6-4 2 2-6z"/>'], ['halloween', 'Noche 31', '<path d="M12 3a7 7 0 0 0-7 7c0 3 2 5 2 8h10c0-3 2-5 2-8a7 7 0 0 0-7-7zM9 21h6M9 12l2 2M15 12l-2 2"/>']];
 
+let lastScreen = null;
 function render() {
-  document.documentElement.dataset.theme = S.theme; $('#themeLabel').textContent = S.theme === 'dark' ? 'OSCURO' : 'CLARO';
+  const screenChanged = lastScreen !== S.screen; lastScreen = S.screen; const pageY = window.scrollY;
+  document.documentElement.dataset.theme = S.theme; document.querySelector('meta[name=theme-color]').content = S.theme === 'dark' ? '#0C0C10' : '#F1EEE7'; $('#themeLabel').textContent = S.theme === 'dark' ? 'OSCURO' : 'CLARO';
   document.body.dataset.mview = S.screen === 'planner' ? S.mview : 'list';
   $('#nav').innerHTML = SCREENS.map(([id, l]) => `<button class="${S.screen === id ? 'on' : ''}" data-act="go" data-arg="${id}">${l}</button>`).join('');
   const mActive = S.screen === 'planner' ? (S.mview === 'map' ? 'map' : 'planner') : S.screen === 'photo' ? 'explore' : S.screen;
@@ -116,6 +119,7 @@ function render() {
   view.innerHTML = { overview: rOverview, planner: rPlanner, explore: rExplore, photo: rPhoto, halloween: rHalloween }[S.screen]();
   if (S.screen === 'planner') { mountMap(); const it = $('.itin'); if (it) it.scrollTop = st; const d = $('.daystrip'); if (d) { if (dsl != null) d.scrollLeft = dsl; else { const on = $('.daystrip .on'); if (on) d.scrollLeft = on.offsetLeft - 20; } } const sl = $('.sheet .list'); if (sl) sl.scrollTop = ssT; }
   if (S.detail && S.screen !== 'planner') view.insertAdjacentHTML('beforeend', rDrawer(S.detail, true));
+  if (screenChanged) { window.scrollTo(0, 0); const sec = view.firstElementChild; if (sec) sec.classList.add('rise'); } else window.scrollTo(0, pageY);
   history.replaceState(null, '', '#' + S.screen);
 }
 
@@ -124,7 +128,7 @@ function rOverview() {
   const days = DAYS.map((_, i) => buildDay(i)), tot = days.reduce((s, d) => s + d.total, 0);
   const sum = (k) => days.reduce((s, d) => s + d.costs[k], 0);
   const f = TRIP.flights;
-  return `<section class="rise">
+  return `<section class="">
   <div class="hero"><img src="assets/skyline.jpg" alt="Skyline de Manhattan al atardecer"><div class="shade"></div><div class="shade2"></div>
     <div class="in"><div class="meta"><span>NEW YORK CITY</span><span>16 DÍAS / 2 PERSONAS</span><span>OCT 24 — NOV 08</span><span>BASE: DANBURY, CT</span></div>
       <h1>La ciudad<br>es el <em>itinerario.</em></h1>
@@ -184,7 +188,7 @@ function rItin(D) {
   const base = D.out ? `<div class="basecard"><span class="dia"></span><div><div class="n">Grand Central Terminal</div><div class="m">LLEGADA EN TREN ${D.out[1]}</div></div><div class="r">${(() => { const c = connect(TRIP.gct, rows[0], 0); return '↓ ' + c.label; })()}</div></div>` : '';
   const list = rows.map((r, k) => {
     const on = k === sel, ok = matches(r), c = r.conn;
-    return `<div class="${ok ? '' : 'dimwrap'}"><button class="act ${on ? 'on' : ''} ${ok ? '' : 'dim'}" data-act="sel" data-arg="${k}"><div class="tcol"><span class="t">${r.t}</span><span class="num">${r.num}</span></div><div class="mid"><span class="tag">${esc(r.cat)}${r.mine ? ' · TU LISTA' : ''}</span><span class="name">${esc(r.name)}</span><span class="hood">${esc(r.hood)}</span><div class="meta"><span><span class="star">★</span> ${r.rating}</span><span class="mono">${esc(r.price)}</span><span style="display:inline-flex;align-items:center;gap:6px"><span class="dot" style="background:${CROWD[r.crowd]}"></span>${r.crowd}</span><span class="mono">${durTxt(r.dur)}</span></div></div><div class="end"><span class="e">${r.endT}</span><span class="d" data-act="detail" data-arg="${k}">Detalle</span></div></button>
+    return `<div class="${ok ? '' : 'dimwrap'}"><button class="act ${on ? 'on' : ''} ${ok ? '' : 'dim'}" data-act="sel" data-arg="${k}"><div class="tcol"><span class="t">${r.t}</span><span class="num">${r.num}</span></div><div class="mid"><span class="tag">${esc(r.cat)}${r.mine ? ' · TU LISTA' : ''}</span><span class="name">${esc(r.name)}</span><span class="hood">${esc(r.hood)}</span><div class="meta"><span><span class="star">★</span> ${r.rating}</span><span class="mono">${esc(r.price)}</span><span style="display:inline-flex;align-items:center;gap:6px"><span class="dot" style="background:${CROWD[r.crowd]}"></span>${r.crowd}</span><span class="mono">${durTxt(r.dur)}</span></div></div><div class="end"><span class="e">${r.endT}</span><a class="d" href="${r.maps}" target="_blank" rel="noopener" data-act="maps">Detalle ↗</a></div></button>
     ${c ? `<button class="conn ${c.mode}" data-act="conn" data-arg="${k}"><div class="ln"><i></i></div><div class="lb"><span class="g">${{ walk: '↓', subway: '◉', uber: '◆', lirr: '◉' }[c.mode]}</span><span>${c.label}</span><span class="s">${c.sub}</span>${c.lines.map((l) => `<span class="bullet">${l}</span>`).join('')}<span class="pm">${S.conn === k ? '−' : '+'}</span></div></button>
     ${S.conn === k ? `<div class="conndet"><div><div class="k">SALIDA</div>${esc(r.name)} · ${r.endT}</div><div><div class="k">LLEGADA</div>${esc(rows[k + 1].name)} · ${rows[k + 1].t}</div><div><div class="k">DETALLE</div>${esc(c.detail)}</div><div><div class="k">COSTE</div>${c.cost ? '$' + c.cost.toFixed(2).replace('.', ',') + (c.mode === 'uber' ? ' por viaje' : ' por persona') : '—'}</div><a href="${dirUrl(r, rows[k + 1], c.mode === 'walk' ? 'walking' : c.mode === 'uber' ? 'driving' : 'transit')}" target="_blank" rel="noopener">Abrir indicaciones →</a></div>` : ''}` : ''}</div>`;
   }).join('');
@@ -260,7 +264,7 @@ function rExplore() {
   const savedP = S.savedIds.map((id) => BY_ID[id]).filter(Boolean).filter(modeOk);
   const hoods = [...new Set(D.rows.map((r) => r.hood).filter((h) => HAPPY_HOUR.hoods[h]))];
   const daySel = `<select data-act="addto" style="background:var(--s2);color:var(--fg);border:1px solid var(--line2);font:inherit;font-size:12px;padding:6px 8px;border-radius:2px">${DAYS.map((d, i) => `<option value="${i}" ${i === tgt ? 'selected' : ''}>Día ${String(i + 1).padStart(2, '0')} · ${dayLabel(d.date)} · ${esc(d.title)}</option>`).join('')}</select>`;
-  return `<section class="rise" style="display:flex;flex-direction:column">
+  return `<section class="" style="display:flex;flex-direction:column">
   <div class="xhero"><img src="assets/bryant.jpg" alt=""><div class="sh"></div><div class="in"><div><span class="eyebrow" style="color:rgba(242,239,233,.65)">EXPLORAR NYC · RUTA DEL DÍA ${String(S.day + 1).padStart(2, '0')}</span><h1>Encuentra algo por lo que valga la pena <em>bajarse del tren.</em></h1><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="eyebrow" style="color:rgba(242,239,233,.65)">AÑADIR A</span>${daySel}</div></div>
     <div class="modes">${[['Todo', 'explore'], ['Comida', 'explore'], ['Compras', 'explore'], ['Noche', 'explore'], ['Foto', 'photo']].map(([l, s]) => `<button class="${S.xmode === l && s === 'explore' ? 'on' : ''}" data-act="${s === 'photo' ? 'go' : 'xmode'}" data-arg="${s === 'photo' ? 'photo' : l}">${l}</button>`).join('')}</div></div></div>
   ${sec('Tu lista de Google Maps', mine.length + ' LUGARES · ' + mine.filter((p) => DAYS.some((_, i) => inDay(i, p.id))).length + ' YA EN EL PLAN', mine)}
@@ -279,7 +283,7 @@ function rPhoto() {
   const cur = spots.find((s) => s.id === S.photoSel) || spots[0];
   const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
   const img = { dumbo: 'taxi', edge: 'skyline', topofrock: 'skyline', bbpark: 'skyline', queensbridge: 'skyline', gantry: 'skyline', brooklynheights: 'skyline', highline: 'bryant', tkts: 'street', gct: 'street', soho: 'street', chinatown: 'street', tudor: 'street', oculus: 'bryant', moynihan: 'bryant' }[cur.id] || 'taxi';
-  return `<section class="photo rise"><div class="phero"><img src="assets/${img}.jpg" alt=""><div class="sh"></div>
+  return `<section class="photo"><div class="phero"><img src="assets/${img}.jpg" alt=""><div class="sh"></div>
     <div class="pf">${PHOTO_FILTERS.map((f) => `<button class="${S.photoF[f] ? 'on' : ''}" data-act="photof" data-arg="${f}">${f}</button>`).join('')}</div>
     <div class="in"><span class="eyebrow" style="color:#C9A87A">MODO FOTO · ${esc(cur.kind)} · DÍA ${String(di + 1).padStart(2, '0')}</span><h1>${esc(cur.p.name)}<em>${esc(cur.p.hood)} · ${esc(cur.p.addr)}</em></h1>
     <div class="pgrid"><div><div class="k">MEJOR LUZ</div><div class="v">${fmt(cur.t)}</div></div><div><div class="k">${cur.tags[0].toUpperCase()}</div><div class="s">${stars(cur.stars)}</div></div><div><div class="k">MULTITUD</div><div style="font-size:14px;margin-top:6px;display:flex;align-items:center;gap:7px"><span class="dot" style="background:${CROWD[cur.p.crowd]}"></span>${cur.p.crowd}</div></div><div><div class="k">CONSEJO</div><div style="font-size:12.5px;margin-top:5px;line-height:1.35">${esc(cur.p.tip)}</div></div></div>
@@ -294,7 +298,7 @@ function rPhoto() {
 function rHalloween() {
   const D = buildDay(7), clubs = ['circoloco', 'elsewhere', 'nowadays', 'publicrecords'].map((i) => BY_ID[i]), roofs = ['phd', 'refinery', 'superior', 'mrpurple'].map((i) => BY_ID[i]);
   const card = (p) => `<div class="hw-card"><span class="tag">${esc(p.cat)} · ${esc(p.hood)}${inDay(7, p.id) ? ' · EN EL PLAN' : ''}</span><div class="n">${esc(p.name)}</div><div class="h">${esc(p.addr)}</div><p>${esc(p.desc)}</p><div class="m"><span>${esc(p.hours)}</span><span>${esc(p.price)}</span><span>${esc(p.booking).toUpperCase()}</span></div><div class="links"><a href="${p.link || p.maps}" target="_blank" rel="noopener">Entradas →</a><a href="${p.maps}" target="_blank" rel="noopener">Maps →</a><button style="color:var(--fg2);font-size:11px;letter-spacing:.12em;text-transform:uppercase" data-act="xdetail" data-arg="${p.id}">Detalle</button>${inDay(7, p.id) ? `<button style="color:var(--fg3);font-size:11px;letter-spacing:.12em;text-transform:uppercase" data-act="remove" data-arg="${p.id}" data-day="7">Quitar</button>` : `<button style="color:var(--acc);font-size:11px;letter-spacing:.12em;text-transform:uppercase" data-act="add" data-arg="${p.id}" data-day="7">+ Al plan</button>`}</div></div>`;
-  return `<section class="rise"><div class="hw-hero"><img src="assets/street.jpg" alt=""><div class="sh"></div><div class="in"><span class="eyebrow" style="color:#E07B60">SÁBADO 31 DE OCTUBRE · DÍA 08 · NOCHE EN NYC</span><h1>Halloween <em>sin tren de vuelta.</em></h1><p>Clubs de house y techno en Brooklyn más un rooftop con disfraz en Manhattan. Hotel en Williamsburg, taxi entre fiestas y el domingo un tren a la hora que sea.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-act="openday" data-arg="7" style="background:#F2EFE9;color:#0C0C10">Ver el día 08 en el mapa</button><a class="btn ghost" href="https://www.circoloco.com" target="_blank" rel="noopener" style="color:#F2EFE9;border-color:rgba(242,239,233,.35)">Entradas Circoloco →</a></div></div></div>
+  return `<section class=""><div class="hw-hero"><img src="assets/street.jpg" alt=""><div class="sh"></div><div class="in"><span class="eyebrow" style="color:#E07B60">SÁBADO 31 DE OCTUBRE · DÍA 08 · NOCHE EN NYC</span><h1>Halloween <em>sin tren de vuelta.</em></h1><p>Clubs de house y techno en Brooklyn más un rooftop con disfraz en Manhattan. Hotel en Williamsburg, taxi entre fiestas y el domingo un tren a la hora que sea.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-act="openday" data-arg="7" style="background:#F2EFE9;color:#0C0C10">Ver el día 08 en el mapa</button><a class="btn ghost" href="https://www.circoloco.com" target="_blank" rel="noopener" style="color:#F2EFE9;border-color:rgba(242,239,233,.35)">Entradas Circoloco →</a></div></div></div>
   <div class="hw-plan"><div><span class="eyebrow acc">EL PLAN · HORA A HORA</span><div class="hw-tl">${D.rows.map((r) => `<div><span class="t">${r.t}</span><div><div class="n">${esc(r.name)}</div><div class="m">${esc(r.hood)} · ${durTxt(r.dur)} · ${esc(r.price)}${r.conn ? ' · luego ' + r.conn.label.toLowerCase() : ''}</div></div></div>`).join('')}<div><span class="t">~06:00</span><div><div class="n">Cierre del Storehouse</div><div class="m">Taxi al hotel (10 min). Domingo: brunch tarde y tren a Danbury a las 11:02, 14:02 o 17:02 (llegan 13:11 / 16:11 / 19:11).</div></div></div></div>
     <div class="hw-logi"><div><b>DÓNDE DORMIR</b>Williamsburg, Wythe Ave: Wythe Hotel, The William Vale o Moxy Williamsburg. Todo queda a 10 min en taxi del Brooklyn Storehouse y a 15 de Elsewhere y Nowadays. Reserven ya: Halloween en sábado se agota.</div><div><b>MOVERSE</b>Entre fiestas, Uber/Lyft ($15-25 por tramo). Metro L y G corren toda la noche si quieren ahorrar. Desde PHD (Meatpacking) al Storehouse: 20-25 min en taxi por el Williamsburg Bridge.</div><div><b>DISFRACES</b>Abracadabra NYC (19 W 21st St, Flatiron) y Halloween Adventure (104 4th Ave) son las tiendas clásicas; cómprenlos el miércoles 28, que están en Chelsea. Cómodo: son 8 horas de pie.</div><div><b>ENTRADAS</b>Circoloco (sábado: Dixon, ANOTR, Jimi Jules, Rossi, KROL) va primero: se agotó rápido en 2025. Elsewhere y PHD como respaldo. Todo 21+ con pasaporte físico.</div></div></div>
   <div><span class="eyebrow acc">CLUBS · HOUSE Y TECHNO</span><div class="hw-cards">${clubs.map(card).join('')}</div><span class="eyebrow sand" style="display:block;margin-top:34px">ROOFTOPS · CÓCTELES CON DISFRAZ</span><div class="hw-cards">${roofs.map(card).join('')}</div><span class="eyebrow" style="display:block;margin-top:34px">CALENTAMIENTO · GRATIS</span><div class="hw-cards">${card(BY_ID.parade)}</div></div></div>
@@ -330,7 +334,7 @@ function updateMap() {
     const on = k === S.sel, ok = matches(r);
     const bg = S.layers.Multitud ? CROWD[r.crowd] : '';
     const m = L.marker([r.lat, r.lng], { icon: L.divIcon({ className: 'mk ' + (on ? 'on' : '') + (ok ? '' : ' dim'), html: (on ? '<span class="pulse"></span>' : '') + `<b style="${bg ? 'background:' + bg + ';color:#fff' : ''}">${r.num}</b>`, iconSize: [44, 44], iconAnchor: [22, 22] }), zIndexOffset: on ? 1000 : 0 }).addTo(map);
-    m.on('click', (e) => { L.DomEvent.stop(e); set({ sel: k, detail: null }); });
+    m.on('click', (e) => { L.DomEvent.stop(e); set(S.sel === k ? { detail: k } : { sel: k, detail: null }); });
     if (on && S.detail == null) m.bindTooltip(`<div class="mlabel"><b>${esc(r.name)}</b><span>${r.t} · ${durTxt(r.dur)} · ${r.crowd.toUpperCase()}</span></div>`, { permanent: true, direction: 'top', offset: [0, -16], className: 'mlabel', interactive: false }).openTooltip();
     mapLayers.markers.push(m);
   });
@@ -338,7 +342,7 @@ function updateMap() {
 }
 function recenter() {
   const D = buildDay(S.day); if (!map) return;
-  if (D.rows.length) map.fitBounds(L.latLngBounds(D.rows.map((r) => [r.lat, r.lng])), { paddingTopLeft: [50, 110], paddingBottomRight: [50, S.mview === 'map' && innerWidth <= 860 ? Math.round(innerHeight * 0.42) : 60], maxZoom: 15 }); else map.setView([40.74, -73.98], 12);
+  if (D.rows.length) map.fitBounds(L.latLngBounds(D.rows.map((r) => [r.lat, r.lng])), { paddingTopLeft: [50, 110], paddingBottomRight: [50, S.mview === 'map' && innerWidth <= 860 ? (S.sheetFull ? Math.round(innerHeight * 0.5) : 190) : 60], maxZoom: 15 }); else map.setView([40.74, -73.98], 12);
 }
 
 // ───────────────────────── acciones ─────────────────────────
@@ -354,10 +358,11 @@ const ACTIONS = {
   go: (a) => set({ screen: a, detail: null, mview: 'list' }),
   mgo: (a) => a === 'map' ? (set({ screen: 'planner', mview: 'map', detail: null }), recenter()) : set({ screen: a, mview: 'list', detail: null }),
   openday: (a) => { S.day = +a; persist(); set({ screen: 'planner', sel: 0, detail: null, conn: null, mview: S.screen === 'planner' ? S.mview : 'list' }); window.scrollTo({ top: 0 }); },
-  theme: () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; persist(); render(); },
+  theme: () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; S.themeManual = true; persist(); render(); },
   filter: (a) => set({ filters: { ...S.filters, [a]: !S.filters[a] } }),
   resetf: () => set({ filters: {} }),
-  sel: (a) => set({ sel: +a, detail: null }),
+  sel: (a) => set(S.sel === +a && S.screen === 'planner' && S.mview === 'list' ? { detail: +a } : { sel: +a, detail: null }),
+  maps: (a, el, e) => e.stopPropagation(),
   detail: (a, el, e) => { e.stopPropagation(); set({ sel: +a, detail: +a }); },
   xdetail: (a, el, e) => { e.stopPropagation(); set({ detail: a }); },
   close: () => set({ detail: null }),
@@ -367,7 +372,7 @@ const ACTIONS = {
   layer: (a) => { S.layers[a] = !S.layers[a]; render(); },
   zoom: (a) => map && map.zoomIn(+a > 0 ? 1 : -1),
   recenter: () => recenter(),
-  sheet: () => set({ sheetFull: !S.sheetFull }),
+  sheet: () => { set({ sheetFull: !S.sheetFull }); recenter(); },
   xmode: (a) => set({ xmode: a }),
   addto: (a) => set({ addTo: +a }),
   photof: (a) => set({ photoF: { ...S.photoF, [a]: !S.photoF[a] } }),
