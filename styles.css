@@ -115,6 +115,17 @@ img{display:block}
 .fares{display:flex;gap:28px;flex-wrap:wrap;font-size:13px;color:var(--fg2)}
 .fares b{font-family:var(--mono);font-weight:500;color:var(--fg);display:block;font-size:16px;margin-top:2px}
 
+/* tops */
+.tops{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.topcard{background:var(--s1);padding:20px;display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:start;transition:background .15s}
+.topcard:hover{background:var(--s3)}
+.topcard .rank{font-family:var(--serif);font-size:34px;line-height:1;color:var(--acc);font-style:italic}
+.topcard .hd{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--fg3)}
+.topcard .t{font-size:18px;font-weight:500;line-height:1.15;margin-top:4px}
+.topcard p{font-size:13px;color:var(--fg2);line-height:1.5;margin-top:8px}
+.topcard .go{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;color:var(--acc);white-space:nowrap}
+.star{color:var(--sand);font-weight:600}
+
 /* ░░ PLANNER ░░ */
 .planner{display:flex;flex-direction:column;min-height:calc(100vh - var(--nav-h))}
 .daystrip{display:flex;overflow-x:auto;border-bottom:1px solid var(--line);background:var(--s1);scrollbar-width:none}
@@ -442,6 +453,8 @@ img{display:block}
   .section-h h2{font-size:26px}
   .daygrid{grid-template-columns:repeat(2,1fr)}
   .daycard{min-height:120px;padding:14px}
+  .tops{grid-template-columns:1fr}
+  .topcard{padding:16px;gap:12px}
   .two{grid-template-columns:1fr}
   .two>div{padding:28px 16px;border-right:0;border-bottom:1px solid var(--line)}
   .flight{grid-template-columns:1fr auto;gap:8px 14px;padding:14px 16px}
